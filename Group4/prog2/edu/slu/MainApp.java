@@ -8,7 +8,14 @@ import javax.swing.SwingUtilities;
 public class MainApp {
 
     public static void main(String[] args) {
-        new ScientificCalculator();
+
+        // Ensures GUI runs on correct thread
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                new FractionTester();
+            }
+        });
+
     }
 }
-
