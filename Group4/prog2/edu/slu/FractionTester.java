@@ -1,128 +1,184 @@
 package prog2.edu.slu;
 
+import pregroup01.Fraction;
+
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
 
 public class FractionTester extends JFrame {
 
-    private JTextField input1 = new JTextField(10);
-    private JTextField input2 = new JTextField(10);
-    private JLabel result = new JLabel("Result will appear here");
+    private JTextField input = new JTextField();
+    private FractionLabel result = new FractionLabel(0, 1);
+    private DefaultListModel<String> historyModel = new DefaultListModel<>();
 
     public FractionTester() {
-        setTitle("Mixed Fraction Calculator");
-
-        // MAIN PANEL (your original layout)
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBorder(new EmptyBorder(15, 15, 15, 15));
-
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(5, 5, 5, 5);
-        c.fill = GridBagConstraints.NONE; // 🔥 prevents stretching
-
-        // INPUT 1
-        c.gridx = 0;
-        c.gridy = 0;
-        panel.add(new JLabel("Input 1:"), c);
-
-        c.gridx = 1;
-        panel.add(input1, c);
-
-        // INPUT 2
-        c.gridx = 0;
-        c.gridy = 1;
-        panel.add(new JLabel("Input 2:"), c);
-
-        c.gridx = 1;
-        panel.add(input2, c);
-
-        // BUTTONS
-        JButton addBtn = createButton("Add");
-        JButton subBtn = createButton("Subtract");
-        JButton mulBtn = createButton("Multiply");
-        JButton divBtn = createButton("Divide");
-
-        c.gridx = 0;
-        c.gridy = 2;
-        panel.add(addBtn, c);
-
-        c.gridx = 1;
-        panel.add(subBtn, c);
-
-        c.gridx = 0;
-        c.gridy = 3;
-        panel.add(mulBtn, c);
-
-        c.gridx = 1;
-        panel.add(divBtn, c);
-
-        // RESULT
-        c.gridx = 0;
-        c.gridy = 4;
-        c.gridwidth = 2;
-        result.setHorizontalAlignment(SwingConstants.CENTER);
-        panel.add(result, c);
-
-        // 🔥 CENTER THE WHOLE UI
-        setLayout(new GridBagLayout());
-        add(panel);
-
-        // BUTTON ACTIONS
-        ActionListener handler = e -> compute(e.getActionCommand());
-
-        addBtn.setActionCommand("Add");
-        subBtn.setActionCommand("Subtract");
-        mulBtn.setActionCommand("Multiply");
-        divBtn.setActionCommand("Divide");
-
-        addBtn.addActionListener(handler);
-        subBtn.addActionListener(handler);
-        mulBtn.addActionListener(handler);
-        divBtn.addActionListener(handler);
-
-        // WINDOW SETTINGS
-        panel.setPreferredSize(new Dimension(300, 200)); // 🔥 keeps compact size
-        pack(); // auto-size based on preferred size
+        setTitle("Fraction Calculator");
+        setSize(500, 400);
         setLocationRelativeTo(null);
+        setLayout(new BorderLayout(10, 10));
+
+        // INPUT FIELD
+        input.setFont(new Font("Segoe UI", Font.PLAIN, 18));
+        input.setHorizontalAlignment(JTextField.RIGHT);
+
+        add(input, BorderLayout.NORTH);
+        add(result, BorderLayout.SOUTH);
+
+        // BUTTON PANEL
+        JPanel buttons = new JPanel(new GridLayout(5, 4, 5, 5));
+
+        String[] keys = {
+                "7","8","9","⌫",
+                "4","5","6","÷",
+                "1","2","3","×",
+                "0",".","a/b","-",
+                "(",")","C","="
+        };
+
+        for (String k : keys) {
+            JButton btn = new JButton(k);
+            btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            btn.addActionListener(e -> handleInput(k));
+            buttons.add(btn);
+        }
+
+        add(buttons, BorderLayout.CENTER);
+
+        // HISTORY PANEL
+        JList<String> historyList = new JList<>(historyModel);
+        JScrollPane scrollPane = new JScrollPane(historyList);
+        scrollPane.setPreferredSize(new Dimension(150, 0));
+        add(scrollPane, BorderLayout.EAST);
+
+        // LIVE PREVIEW (updates while typing)
+        input.addKeyListener(new KeyAdapter() {
+            public void keyReleased(KeyEvent e) {
+                updatePreview();
+            }
+        });
+
+        // KEYBOARD SUPPORT
+        setupKeyboard();
+
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setVisible(true);
+
+        input.requestFocusInWindow();
     }
 
-    private JButton createButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setPreferredSize(new Dimension(110, 30)); // consistent button size
-        return btn;
+    private void handleInput(String key) {
+
+        if (key.equals("C")) {
+            input.setText("");
+            result.setFraction(0, 1);
+        } else if (key.equals("=")) {
+            try {
+                String expr = input.getText()
+                        .replace("×", "*")
+                        .replace("÷", "/");
+
+                Fraction res = ExpressionEvaluator.evaluate(expr);
+
+                result.setFraction(res.getNumerator(), res.getDenominator());
+
+                // SAVE TO HISTORY
+                historyModel.addElement(input.getText() + " = " + res);
+
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Invalid Expression");
+            }
+        } else if (key.equals("a/b")) {
+
+            String text = input.getText();
+            int pos = input.getCaretPosition();
+
+            // Insert template " / "
+            String insert = "/";
+
+            input.setText(text.substring(0, pos) + insert + text.substring(pos));
+
+            // Move cursor AFTER the slash (so user types denominator next)
+            input.setCaretPosition(pos + 1);
+
+        }
+
+        else if (key.equals("⌫")) {
+
+            String text = input.getText();
+            int pos = input.getCaretPosition();
+
+            if (!text.isEmpty() && pos > 0) {
+                input.setText(text.substring(0, pos - 1) + text.substring(pos));
+                input.setCaretPosition(pos - 1);
+            }
+        }
+
+        else {
+            input.setText(input.getText() + key);
+        }
+
+        updatePreview();
     }
 
-    private void compute(String op) {
+    private void updatePreview() {
         try {
-            MixedNumber a = Parser.parse(input1.getText());
-            MixedNumber b = Parser.parse(input2.getText());
-            MixedNumber r;
+            String expr = input.getText()
+                    .replace("×", "*")
+                    .replace("÷", "/");
 
-            switch (op) {
-                case "Add":
-                    r = a.add(b);
-                    break;
-                case "Subtract":
-                    r = a.subtract(b);
-                    break;
-                case "Multiply":
-                    r = a.multiplyBy(b);
-                    break;
-                case "Divide":
-                    r = a.divideBy(b);
-                    break;
-                default:
-                    return;
+            if (!expr.isEmpty()) {
+                Fraction res = ExpressionEvaluator.evaluate(expr);
+                result.setFraction(res.getNumerator(), res.getDenominator());
+            }
+        } catch (Exception e) {
+            // ignore while typing
+        }
+    }
+
+    // 🔥 KEYBOARD SUPPORT
+    private void setupKeyboard() {
+
+        input.addKeyListener(new KeyAdapter() {
+
+            @Override
+            public void keyPressed(KeyEvent e) {
+
+                int key = e.getKeyCode();
+
+                if (key == KeyEvent.VK_ENTER) {
+                    handleInput("=");
+                } else if (key == KeyEvent.VK_ESCAPE) {
+                    handleInput("C");
+                } else if (key == KeyEvent.VK_BACK_SPACE) {
+                    String text = input.getText();
+                    if (!text.isEmpty()) {
+                        input.setText(text.substring(0, text.length() - 1));
+                    }
+                    e.consume();
+                }
             }
 
-            result.setText("Result: " + r + " (" + r.toDouble() + ")");
+            @Override
+            public void keyTyped(KeyEvent e) {
 
-        } catch (InvalidMixedNumberException e) {
-            result.setText("Error: " + e.getMessage());
-        }
+                char c = e.getKeyChar();
+
+                if ("0123456789+-*/^().".indexOf(c) != -1) {
+
+                    if (c == '*') {
+                        input.setText(input.getText() + "×");
+                    } else if (c == '/') {
+                        input.setText(input.getText() + "÷");
+                    } else {
+                        input.setText(input.getText() + c);
+                    }
+
+                    e.consume();
+                } else {
+                    e.consume();
+                }
+            }
+        });
     }
 }
